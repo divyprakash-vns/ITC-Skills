@@ -85,6 +85,26 @@ button { min-height: 46px; touch-action: manipulation; }
   .computer { width: 100%; }
   .drop { font-size: 10px; border-width: 2px; }
 }
+
+/* Fix: keep the entire computer illustration and its drop targets scaled as one unit on phones. */
+.computer-box { overflow: hidden; }
+.computer {
+  width: 450px !important;
+  min-width: 450px;
+  height: 420px !important;
+  aspect-ratio: auto !important;
+  position: relative;
+  left: 50%;
+  margin-left: -225px;
+  transform: scale(var(--computer-scale, 1));
+  transform-origin: top center;
+  margin-bottom: calc(-420px * (1 - var(--computer-scale, 1)));
+  flex-shrink: 0;
+}
+@media (max-width: 700px) {
+  .computer-box { padding: 12px 8px; }
+  .computer { --computer-scale: 0.75; }
+}
 </style>
 </head>
 <body>
@@ -171,6 +191,17 @@ function completeGame(){
     document.body.appendChild(piece);setTimeout(()=>piece.remove(),3800);
   }
 }
+function fitComputer(){
+  const box=document.querySelector('.computer-box');
+  if(!box)return;
+  const available=Math.max(220,box.clientWidth-32);
+  const scale=Math.min(1,available/450);
+  computer.style.setProperty('--computer-scale',String(scale));
+  computer.style.marginBottom=`${-420*(1-scale)}px`;
+}
+window.addEventListener('resize',fitComputer,{passive:true});
+fitComputer();
+
 parts.forEach(part=>{
   part.addEventListener('dragstart',()=>{dragged=part;part.classList.add('dragging')});
   part.addEventListener('dragend',()=>part.classList.remove('dragging'));
