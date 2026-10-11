@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🎈 Letter Balloon Pop</title>
+<style>
+*{box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-height:100vh;font-family:"Segoe UI",Arial,sans-serif;background:#eaf7ff;display:flex;flex-direction:column;align-items:center;padding:10px;overflow:hidden}
+h1{margin:4px 0 8px;color:#24445c;font-size:1.55rem;text-align:center}
+.top{width:100%;max-width:850px;display:flex;justify-content:space-between;align-items:center;gap:8px;background:#fff;border:2px solid #90caf9;border-radius:14px;padding:8px 12px;font-weight:700}
+.target{font-size:1.15rem;color:#333}.target b{display:inline-flex;background:#ff9800;color:#fff;border-radius:10px;padding:2px 12px;font-size:1.35rem}
+.score{color:#1976d2}.lives{color:#e53935}.timer{color:#8e44ad}.balloon-count{color:#00897b}
+.instruction{margin:9px 0;padding:7px 14px;background:#e1f5fe;border:2px solid #b3e5fc;border-radius:20px;font-weight:700;text-align:center;max-width:850px;width:100%}
+.game{position:relative;width:100%;max-width:850px;flex:1;min-height:600px;background:linear-gradient(#dff6ff,#f8fdff);border:3px solid #90caf9;border-radius:18px;overflow:hidden;box-shadow:0 5px 12px #00000012}
+.balloon{position:absolute;width:72px;height:88px;border-radius:50% 50% 45% 45%;display:flex;align-items:center;justify-content:center;color:white;font-size:1.55rem;font-weight:900;text-shadow:0 2px 2px #0005;cursor:pointer;box-shadow:inset -9px -10px 15px #0002,0 4px 7px #0002;transition:transform .1s}
+.balloon:after{content:"";position:absolute;bottom:-14px;width:2px;height:16px;background:#777}
+.balloon.pop{transform:scale(1.7);opacity:0}
+.feedback{height:32px;margin:5px;font-weight:800;text-align:center;font-size:1.05rem}
+button{border:0;border-radius:10px;padding:10px 18px;background:#4caf50;color:#fff;font-weight:800;font-size:1rem;cursor:pointer}
+#modal{display:none;position:fixed;inset:0;background:#0009;z-index:10;align-items:center;justify-content:center;padding:20px}
+.modalbox{background:white;border-radius:20px;padding:25px;text-align:center;width:min(360px,100%);box-shadow:0 12px 30px #0005}
+.modalbox h2{color:#2e7d32;margin:0 0 8px}
+@media(min-width:650px){h1{font-size:1.8rem}.balloon{width:82px;height:98px;font-size:1.7rem}.game{min-height:650px}}
+</style>
+</head>
+<body>
+<h1>🎈 Letter Balloon Pop</h1>
+<div class="top">
+  <div class="target">Pop the letter: <b id="target">A</b></div>
+  <div class="score">⭐ Score: <span id="score">0</span></div>
+  <div class="lives">❤️ <span id="lives">3</span></div><div class="timer">⏱️ <span id="timer">30</span>s</div><div class="balloon-count">🎈 <span id="balloons">0</span></div>
+</div>
+<div class="instruction">Pop all 6 balloons containing the target letter!</div>
+<div class="game" id="game"></div>
+<div class="feedback" id="feedback"></div>
+<button onclick="newRound()">🔄 New Round</button>
+
+<div id="modal">
+  <div class="modalbox">
+    <h2>🎉 Great Job!</h2>
+    <p id="result"></p>
+    <button onclick="restart()">Play Again</button>
+  </div>
+</div>
+
+<script>
+let audioCtx=null, target="A", score=0, lives=3, popped=0, totalTarget=6, timer=null, timeLeft=30, timerInterval=null, balloonsShown=0;
+const letters="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const game=document.getElementById("game");
+const timerEl=document.getElementById("timer");
+const balloonsEl=document.getElementById("balloons");
+
+function audio(){
+ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+ if(audioCtx.state==="suspended") audioCtx.resume();
+ return audioCtx;
+}
+function tone(freq,dur=.18,type="sine"){
+ try{
+  const c=audio(),o=c.createOscillator(),g=c.createGain(),n=c.currentTime;
+  o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(.18,n);
+  g.gain.exponentialRampToValueAtTime(.001,n+dur);o.connect(g);g.connect(c.destination);
+  o.start(n);o.stop(n+dur);
+ }catch(e){}
+}
+function speak(text){
+ if("speechSynthesis" in window){
+  speechSynthesis.cancel();
+  const m=new SpeechSynthesisUtterance(text);m.lang="en-US";speechSynthesis.speak(m);
+ }
+}
+function rand(min,max){return Math.random()*(max-min)+min}
+function updateBalloonCount(){
+  balloonsEl.textContent=balloonsShown;
+}
+function startTimer(){
+  clearInterval(timerInterval);
+  timeLeft=30;
+  timerEl.textContent=timeLeft;
+  timerInterval=setInterval(()=>{
+    timeLeft--;
+    timerEl.textContent=timeLeft;
+    if(timeLeft<=0){
+      clearInterval(timerInterval);
+      document.getElementById("feedback").textContent="⏰ Time's up!";
+      tone(160,.35,"sine");
+      endGame();
+    }
+  },1000);
+}
+function chooseRound(){
+ target=letters[Math.floor(Math.random()*26)];
+ document.getElementById("target").textContent=target;
+}
+function makeBalloon(letter){
+ const b=document.createElement("div");
+ b.className="balloon";
+ b.textContent=letter;
+ b.dataset.letter=letter;
+ b.style.left=rand(3,89)+"%";
+ b.style.bottom="-110px";
+ b.style.background=`hsl(${Math.floor(Math.random()*360)},75%,55%)`;
+ b.onclick=()=>pop(b);
+ game.appendChild(b); balloonsShown++; updateBalloonCount();
+ let bottom=-110, speed=rand(.22,.42);
+ function rise(){
+  if(!b.isConnected)return;
+  bottom+=speed;
+  b.style.bottom=bottom+"px";
+  if(bottom<game.clientHeight+120) requestAnimationFrame(rise);
+  else { b.remove(); balloonsShown=Math.max(0,balloonsShown-1); updateBalloonCount(); }
+ }
+ requestAnimationFrame(rise);
+}
+function pop(b){
+ if(b.classList.contains("pop"))return;
+ if(b.dataset.letter===target){
+  b.classList.add("pop");popped++;score+=10; balloonsShown=Math.max(0,balloonsShown-1); updateBalloonCount();
+  document.getElementById("score").textContent=score;
+  document.getElementById("feedback").textContent=`Great! ${target} is correct!`;
+  tone(700,.12,"triangle");setTimeout(()=>tone(950,.18,"triangle"),90);
+  speak(`${target}. Great job!`);
+  if(popped===totalTarget) setTimeout(nextRound,450);
+ }else{
+  lives--;document.getElementById("lives").textContent=lives;
+  b.style.animation="shake .25s";
+  document.getElementById("feedback").textContent="Oops! Try the target letter.";
+  tone(180,.22,"sine");
+  speak("Oops! Try again.");
+  if(lives<=0) endGame();
+ }
+}
+function nextRound(){ clearTimeout(timer); game.innerHTML=""; chooseRound(); popped=0; spawn(); }
+function spawn(){
+ const targetCount=6;
+ totalTarget=targetCount;
+ for(let i=0;i<targetCount;i++) setTimeout(()=>makeBalloon(target),i*450);
+ const pool=letters.filter(x=>x!==target);
+ for(let i=0;i<12;i++) setTimeout(()=>makeBalloon(pool[Math.floor(Math.random()*pool.length)]),i*260);
+ timer=setTimeout(()=>{
+   if(popped<totalTarget && lives>0){document.getElementById("feedback").textContent="Keep looking!";spawnMore();}
+ },3500);
+}
+function spawnMore(){
+ for(let i=0;i<8;i++){
+  const pool=letters.filter(x=>x!==target);
+  setTimeout(()=>makeBalloon(Math.random()<.45?target:pool[Math.floor(Math.random()*pool.length)]),i*500);
+ }
+}
+function newRound(){clearInterval(timerInterval);clearTimeout(timer);game.innerHTML="";popped=0;balloonsShown=0;updateBalloonCount();document.getElementById("feedback").textContent="";chooseRound();spawn();startTimer();speak(`Find and pop the letter ${target}.`)}
+function endGame(){clearInterval(timerInterval);
+ document.getElementById("result").textContent=`Your score is ${score}. You popped ${score/10} correct balloons out of ${totalTarget} target balloons!`;
+ document.getElementById("modal").style.display="flex";speak("Game over!");
+}
+function restart(){
+ document.getElementById("modal").style.display="none";
+ score=0;lives=3;
+ document.getElementById("score").textContent=0;
+ document.getElementById("lives").textContent=3;timerEl.textContent=30;
+ newRound();
+}
+const style=document.createElement("style");
+style.textContent="@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}";
+document.head.appendChild(style);
+newRound();
+</script>
+</body>
+</html>
