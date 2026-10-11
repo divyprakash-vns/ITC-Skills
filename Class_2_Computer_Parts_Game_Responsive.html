@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Class 2 - Assemble a Computer</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#dff7ff,#fff4c7);text-align:center;min-height:100vh}
+header{background:#2563eb;color:white;padding:18px}
+h1{margin:0;font-size:32px}.subtitle{font-size:19px;margin-top:8px}
+.info{margin:15px;font-size:21px;font-weight:bold}
+.game{display:flex;justify-content:center;align-items:flex-start;gap:30px;flex-wrap:wrap;padding:15px}
+.parts-box,.computer-box{background:white;border-radius:20px;padding:15px}
+.parts-box{width:320px;border:4px solid #8b5cf6}
+.parts-box h2{color:#6d28d9}
+.parts{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.part{width:125px;height:105px;background:#fefce8;border:3px solid #333;border-radius:15px;cursor:grab;padding:8px;box-shadow:0 5px 8px #aaa;transition:.2s}
+.part:hover{transform:scale(1.08)}.part.dragging{opacity:.5}
+.icon{font-size:45px}.name{font-size:17px;font-weight:bold}
+.computer-box{width:500px;border:4px solid #16a34a}.computer-box h2{color:#15803d}
+.computer{position:relative;width:450px;height:420px;margin:auto;background:#e0f2fe;border-radius:20px;border:4px solid #334155}
+.monitor{position:absolute;width:200px;height:125px;left:125px;top:20px;background:#64748b;border:8px solid #334155;border-radius:12px}
+.monitor-screen{height:85px;margin:8px;background:#bfdbfe;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.monitor-stand{position:absolute;width:45px;height:35px;background:#334155;left:202px;top:145px}
+.monitor-base{position:absolute;width:110px;height:15px;background:#334155;left:170px;top:175px;border-radius:10px}
+.cpu{position:absolute;width:105px;height:145px;left:30px;top:235px;background:#475569;border:5px solid #1e293b;border-radius:10px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold}
+.keyboard{position:absolute;width:220px;height:65px;left:115px;top:270px;background:#94a3b8;border:4px solid #475569;border-radius:10px;padding:8px;display:grid;grid-template-columns:repeat(8,1fr);gap:3px}
+.key{background:white;border-radius:2px}
+.mouse{position:absolute;width:55px;height:80px;right:35px;top:265px;background:#94a3b8;border:4px solid #475569;border-radius:50%}
+.speaker{position:absolute;width:50px;height:80px;background:#64748b;border:4px solid #334155;border-radius:8px;top:220px}
+.left-speaker{left:75px}.right-speaker{right:75px}
+.speaker:after{content:"🔊";font-size:25px;position:absolute;top:25px;left:8px}
+.drop{position:absolute;border:3px dashed #ef4444;background:rgba(255,255,255,.45);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#dc2626;font-size:13px;font-weight:bold;z-index:10}
+#monitorDrop{width:190px;height:115px;left:130px;top:25px}
+#cpuDrop{width:95px;height:135px;left:35px;top:240px}
+#keyboardDrop{width:210px;height:55px;left:120px;top:275px}
+#mouseDrop{width:45px;height:70px;right:40px;top:270px}
+#speakerDrop{width:45px;height:75px;right:78px;top:222px}
+.correct{background:rgba(34,197,94,.85)!important;border:3px solid #15803d!important;color:white!important}
+button{margin:18px;padding:12px 25px;border:0;border-radius:25px;background:#ef4444;color:white;font-size:18px;font-weight:bold;cursor:pointer}
+#message{font-size:25px;font-weight:bold;min-height:35px}
+@media(max-width:600px){.computer-box{width:95%}.computer{transform:scale(.75);transform-origin:top center;margin-bottom:-90px}}
+
+/* Responsive layout for phones, tablets and desktop */
+html { -webkit-text-size-adjust: 100%; }
+body { width: 100%; overflow-x: hidden; }
+header { padding: clamp(12px, 3vw, 22px); }
+h1 { font-size: clamp(22px, 4vw, 34px); line-height: 1.2; }
+.subtitle { font-size: clamp(15px, 2.5vw, 20px); }
+.info { font-size: clamp(18px, 2.5vw, 22px); }
+#message { font-size: clamp(17px, 2.6vw, 25px); padding: 0 12px; }
+.game { width: 100%; gap: 20px; align-items: stretch; }
+.parts-box, .computer-box { max-width: 100%; }
+.parts-box { flex: 1 1 280px; width: min(100%, 340px); }
+.computer-box { flex: 0 1 500px; width: min(100%, 500px); }
+.computer { width: min(100%, 450px); height: auto; aspect-ratio: 450 / 420; }
+.computer > * { /* Positions are scaled proportionally below on narrow screens */ }
+.part { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.part.selected { outline: 4px solid #2563eb; background: #dbeafe; transform: translateY(-2px); }
+.drop { touch-action: manipulation; }
+button { min-height: 46px; touch-action: manipulation; }
+@media (max-width: 700px) {
+  .game { flex-direction: column; align-items: center; padding: 10px; gap: 16px; }
+  .parts-box, .computer-box { width: 100%; max-width: 500px; padding: 12px; }
+  .parts-box { flex: none; }
+  .parts { gap: 9px; }
+  .part { width: clamp(92px, 27vw, 125px); height: 100px; padding: 6px 4px; }
+  .icon { font-size: clamp(34px, 9vw, 45px); }
+  .name { font-size: clamp(14px, 3.8vw, 17px); }
+  .computer { width: 100%; max-width: 450px; transform: none; margin: 0 auto; }
+  /* Scale all computer components and drop zones together by sizing the play area */
+  .computer > * { }
+  .computer-box h2, .parts-box h2 { font-size: 20px; }
+  button { margin: 12px 4px; }
+}
+@media (max-width: 380px) {
+  .computer { width: 100%; }
+  .drop { font-size: 10px; border-width: 2px; }
+}
+</style>
+</head>
+<body>
+<header><h1>🖥️ Assemble a Computer 🖥️</h1><div class="subtitle">Class 2 Computer Activity</div></header>
+<div class="info">⭐ Score: <span id="score">0</span></div>
+<div id="message">Drag the computer parts to the correct place! 😊</div>
+<div class="game">
+<div class="parts-box">
+<h2>🧩 Computer Parts</h2>
+<div class="parts">
+<div class="part" draggable="true" data-part="monitor"><div class="icon">🖥️</div><div class="name">Monitor</div></div>
+<div class="part" draggable="true" data-part="keyboard"><div class="icon">⌨️</div><div class="name">Keyboard</div></div>
+<div class="part" draggable="true" data-part="mouse"><div class="icon">🖱️</div><div class="name">Mouse</div></div>
+<div class="part" draggable="true" data-part="cpu"><div class="icon">🖥️</div><div class="name">CPU</div></div>
+<div class="part" draggable="true" data-part="speaker"><div class="icon">🔊</div><div class="name">Speaker</div></div>
+</div></div>
+<div class="computer-box">
+<h2>🏠 Build Your Computer</h2>
+<div class="computer">
+<div class="monitor"><div class="monitor-screen">Hello! 👋</div></div>
+<div class="monitor-stand"></div><div class="monitor-base"></div>
+<div class="cpu">CPU</div>
+<div class="keyboard">
+<div class="key"></div><div class="key"></div><div class="key"></div><div class="key"></div>
+<div class="key"></div><div class="key"></div><div class="key"></div><div class="key"></div>
+<div class="key"></div><div class="key"></div><div class="key"></div><div class="key"></div>
+<div class="key"></div><div class="key"></div><div class="key"></div><div class="key"></div>
+</div>
+<div class="mouse"></div><div class="speaker left-speaker"></div><div class="speaker right-speaker"></div>
+<div class="drop" id="monitorDrop" data-answer="monitor">DROP MONITOR HERE</div>
+<div class="drop" id="cpuDrop" data-answer="cpu">DROP CPU HERE</div>
+<div class="drop" id="keyboardDrop" data-answer="keyboard">DROP KEYBOARD HERE</div>
+<div class="drop" id="mouseDrop" data-answer="mouse">DROP MOUSE HERE</div>
+<div class="drop" id="speakerDrop" data-answer="speaker">DROP SPEAKER HERE</div>
+</div>
+<button onclick="restartGame()">🔄 Play Again</button>
+</div></div>
+<script>
+let score=0,dragged=null,placed=0;
+const parts=document.querySelectorAll(".part"),drops=document.querySelectorAll(".drop");
+parts.forEach(part=>{
+part.addEventListener("dragstart",()=>{dragged=part;part.classList.add("dragging")});
+part.addEventListener("dragend",()=>part.classList.remove("dragging"));
+/* On touchscreens, tap a part and then tap its matching drop zone. */
+part.addEventListener("click",()=>{
+  if (part.style.display === "none") return;
+  parts.forEach(p=>p.classList.remove("selected"));
+  part.classList.add("selected");
+  dragged=part;
+  document.getElementById("message").textContent="Now tap the correct place for "+part.querySelector(".name").textContent+"! 👆";
+});
+});
+drops.forEach(drop=>{
+drop.addEventListener("dragover",e=>e.preventDefault());
+drop.addEventListener("drop",e=>{
+e.preventDefault();if(!dragged)return;
+if(drop.dataset.answer===dragged.dataset.part){
+score+=10;placed++;document.getElementById("score").textContent=score;
+drop.textContent="✅ "+dragged.querySelector(".name").textContent;
+drop.classList.add("correct");dragged.style.display="none";dragged.classList.remove("selected");
+document.getElementById("message").textContent="🎉 Well Done! That's correct!";
+if(placed===5){score+=20;document.getElementById("score").textContent=score;document.getElementById("message").textContent="🏆 Amazing! Your computer is ready! 🎉";}
+}else document.getElementById("message").textContent="❌ Try again! Find the correct place.";
+dragged=null;
+});
+});
+function restartGame(){
+score=0;placed=0;document.getElementById("score").textContent="0";
+document.getElementById("message").textContent="Drag the computer parts to the correct place! 😊";
+parts.forEach(p=>{p.style.display="block";p.classList.remove("selected")});
+dragged=null;
+const labels={monitor:"DROP MONITOR HERE",cpu:"DROP CPU HERE",keyboard:"DROP KEYBOARD HERE",mouse:"DROP MOUSE HERE",speaker:"DROP SPEAKER HERE"};
+drops.forEach(d=>{d.classList.remove("correct");d.textContent=labels[d.dataset.answer]});
+}
+</script>
+</body>
+</html>
