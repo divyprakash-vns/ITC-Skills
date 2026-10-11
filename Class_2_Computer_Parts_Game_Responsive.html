@@ -37,7 +37,14 @@ h1{margin:0;font-size:32px}.subtitle{font-size:19px;margin-top:8px}
 #keyboardDrop{width:210px;height:55px;left:120px;top:275px}
 #mouseDrop{width:45px;height:70px;right:40px;top:270px}
 #speakerDrop{width:45px;height:75px;right:78px;top:222px}
-.correct{background:rgba(34,197,94,.85)!important;border:3px solid #15803d!important;color:white!important}
+.correct{background:rgba(34,197,94,.9)!important;border:3px solid #15803d!important;color:white!important}
+.computer.completed{animation:celebrate .7s ease-in-out 3;border-color:#f59e0b;box-shadow:0 0 0 6px #fde68a,0 0 35px #facc15}
+@keyframes celebrate{0%,100%{transform:scale(1)}50%{transform:scale(1.025)}}
+#celebration{display:none;margin:10px auto;padding:14px;border-radius:16px;background:#fef3c7;color:#92400e;font-size:clamp(20px,3vw,30px);font-weight:900;max-width:500px}
+#celebration.show{display:block;animation:pop .5s ease-out}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.confetti{position:fixed;top:-20px;z-index:1000;pointer-events:none;font-size:24px;animation:fall 2.4s linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.15}}
 button{margin:18px;padding:12px 25px;border:0;border-radius:25px;background:#ef4444;color:white;font-size:18px;font-weight:bold;cursor:pointer}
 #message{font-size:25px;font-weight:bold;min-height:35px}
 @media(max-width:600px){.computer-box{width:95%}.computer{transform:scale(.75);transform-origin:top center;margin-bottom:-90px}}
@@ -83,7 +90,8 @@ button { min-height: 46px; touch-action: manipulation; }
 <body>
 <header><h1>🖥️ Assemble a Computer 🖥️</h1><div class="subtitle">Class 2 Computer Activity</div></header>
 <div class="info">⭐ Score: <span id="score">0</span></div>
-<div id="message">Drag the computer parts to the correct place! 😊</div>
+<div id="message" role="status" aria-live="polite">Drag the computer parts to the correct place! 😊</div>
+<div id="celebration" aria-live="polite">🎉 COMPUTER READY! GREAT JOB! 🎉</div>
 <div class="game">
 <div class="parts-box">
 <h2>🧩 Computer Parts</h2>
@@ -116,41 +124,76 @@ button { min-height: 46px; touch-action: manipulation; }
 <button onclick="restartGame()">🔄 Play Again</button>
 </div></div>
 <script>
-let score=0,dragged=null,placed=0;
-const parts=document.querySelectorAll(".part"),drops=document.querySelectorAll(".drop");
+let score=0,dragged=null,placed=0,finished=false,audioContext=null;
+const parts=[...document.querySelectorAll('.part')],drops=[...document.querySelectorAll('.drop')];
+const scoreEl=document.getElementById('score'),message=document.getElementById('message');
+const computer=document.querySelector('.computer'),screen=document.querySelector('.monitor-screen'),celebration=document.getElementById('celebration');
+
+// Tiny synthesized sound effects; no external audio files or downloads required.
+function playSound(kind){
+  try{
+    audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();
+    if(audioContext.state==='suspended') audioContext.resume();
+    const now=audioContext.currentTime;
+    const notes=kind==='correct'?[660,880]:kind==='wrong'?[220,165]:[523,659,784,1047,1318];
+    notes.forEach((freq,i)=>{
+      const osc=audioContext.createOscillator(),gain=audioContext.createGain();
+      osc.type=kind==='wrong'?'triangle':'sine';osc.frequency.setValueAtTime(freq,now+i*(kind==='complete'?.13:.09));
+      const t=now+i*(kind==='complete'?.13:.09);
+      gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.18,t+.02);gain.gain.exponentialRampToValueAtTime(.0001,t+.18);
+      osc.connect(gain);gain.connect(audioContext.destination);osc.start(t);osc.stop(t+.2);
+    });
+  }catch(e){/* Audio may be unavailable; the game still works. */}
+}
+function placePart(drop,part){
+  if(!part||finished||part.style.display==='none')return;
+  if(drop.dataset.answer===part.dataset.part){
+    score+=10;placed++;scoreEl.textContent=score;
+    drop.textContent='✅ '+part.querySelector('.name').textContent;drop.classList.add('correct');
+    part.style.display='none';part.classList.remove('selected');message.textContent='🎵 Ding! Well done! That is correct!';playSound('correct');
+    if(placed===5) completeGame();
+  }else{
+    message.textContent='❌ Oops! Try again. Find the correct place. 🔔';playSound('wrong');
+    drop.animate([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:220});
+  }
+  dragged=null;parts.forEach(p=>p.classList.remove('selected'));
+}
+function completeGame(){
+  finished=true;score+=20;scoreEl.textContent=score;
+  message.textContent='🏆 Amazing! You assembled every computer part!';
+  celebration.classList.add('show');computer.classList.add('completed');
+  screen.textContent='READY! 🎉';screen.style.background='#bbf7d0';screen.style.color='#166534';
+  playSound('complete');
+  const confetti=['🎉','⭐','✨','🎊','💻'];
+  for(let i=0;i<34;i++){
+    const piece=document.createElement('span');piece.className='confetti';piece.textContent=confetti[i%confetti.length];
+    piece.style.left=(Math.random()*100)+'vw';piece.style.animationDelay=(Math.random()*.8)+'s';piece.style.animationDuration=(1.8+Math.random()*1.5)+'s';
+    document.body.appendChild(piece);setTimeout(()=>piece.remove(),3800);
+  }
+}
 parts.forEach(part=>{
-part.addEventListener("dragstart",()=>{dragged=part;part.classList.add("dragging")});
-part.addEventListener("dragend",()=>part.classList.remove("dragging"));
-/* On touchscreens, tap a part and then tap its matching drop zone. */
-part.addEventListener("click",()=>{
-  if (part.style.display === "none") return;
-  parts.forEach(p=>p.classList.remove("selected"));
-  part.classList.add("selected");
-  dragged=part;
-  document.getElementById("message").textContent="Now tap the correct place for "+part.querySelector(".name").textContent+"! 👆";
-});
+  part.addEventListener('dragstart',()=>{dragged=part;part.classList.add('dragging')});
+  part.addEventListener('dragend',()=>part.classList.remove('dragging'));
+  part.addEventListener('click',()=>{
+    if(finished||part.style.display==='none')return;
+    parts.forEach(p=>p.classList.remove('selected'));part.classList.add('selected');dragged=part;
+    message.textContent='Now tap the correct place for '+part.querySelector('.name').textContent+'! 👆';
+  });
 });
 drops.forEach(drop=>{
-drop.addEventListener("dragover",e=>e.preventDefault());
-drop.addEventListener("drop",e=>{
-e.preventDefault();if(!dragged)return;
-if(drop.dataset.answer===dragged.dataset.part){
-score+=10;placed++;document.getElementById("score").textContent=score;
-drop.textContent="✅ "+dragged.querySelector(".name").textContent;
-drop.classList.add("correct");dragged.style.display="none";dragged.classList.remove("selected");
-document.getElementById("message").textContent="🎉 Well Done! That's correct!";
-if(placed===5){score+=20;document.getElementById("score").textContent=score;document.getElementById("message").textContent="🏆 Amazing! Your computer is ready! 🎉";}
-}else document.getElementById("message").textContent="❌ Try again! Find the correct place.";
-dragged=null;
-});
+  drop.addEventListener('dragover',e=>e.preventDefault());
+  drop.addEventListener('drop',e=>{e.preventDefault();placePart(drop,dragged)});
+  // Also make drop targets work with taps on phones and tablets.
+  drop.addEventListener('click',()=>{if(dragged)placePart(drop,dragged)});
 });
 function restartGame(){
-score=0;placed=0;document.getElementById("score").textContent="0";
-document.getElementById("message").textContent="Drag the computer parts to the correct place! 😊";
-parts.forEach(p=>{p.style.display="block";p.classList.remove("selected")});
-dragged=null;
-const labels={monitor:"DROP MONITOR HERE",cpu:"DROP CPU HERE",keyboard:"DROP KEYBOARD HERE",mouse:"DROP MOUSE HERE",speaker:"DROP SPEAKER HERE"};
-drops.forEach(d=>{d.classList.remove("correct");d.textContent=labels[d.dataset.answer]});
+  score=0;placed=0;dragged=null;finished=false;scoreEl.textContent='0';
+  message.textContent='Drag the computer parts to the correct place! 😊';celebration.classList.remove('show');computer.classList.remove('completed');
+  screen.textContent='Hello! 👋';screen.style.background='#bfdbfe';screen.style.color='';
+  parts.forEach(p=>{p.style.display='';p.classList.remove('selected','dragging')});
+  const labels={monitor:'DROP MONITOR HERE',cpu:'DROP CPU HERE',keyboard:'DROP KEYBOARD HERE',mouse:'DROP MOUSE HERE',speaker:'DROP SPEAKER HERE'};
+  drops.forEach(d=>{d.classList.remove('correct');d.textContent=labels[d.dataset.answer]});
+  document.querySelectorAll('.confetti').forEach(c=>c.remove());
 }
 </script>
 </body>
